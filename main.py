@@ -20,7 +20,7 @@
 # └── data/
 #     └── historical/          # 1Y OHLCV data for BTC/XAU
 
-# main.py
+# main.py (entrypoint)
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from app.signals import generate_signal
@@ -34,6 +34,10 @@ class TradeRequest(BaseModel):
     symbol: str  # 'XAUUSD' or 'BTCUSDT'
     timeframe: str  # e.g. '15m'
     account_balance: float
+
+@app.get("/")
+def root():
+    return {"status": "Bot is running"}
 
 @app.post("/trade")
 def trade_logic(req: TradeRequest):
@@ -61,12 +65,20 @@ def trade_logic(req: TradeRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 # === SIGNAL GENERATION ===
-# signals.py (simplified)
+# app/signals.py
 import pandas as pd
+
+def load_ohlcv(symbol, timeframe):
+    return pd.DataFrame([])  # Placeholder, replace with actual data loading
+
+def detect_order_block(df): return True
+
+def detect_bos(df): return True
+
+def detect_fvg(df): return True
 
 def generate_signal(symbol, timeframe):
     df = load_ohlcv(symbol, timeframe)
-    # Logic for SMC: Order Block, BOS, FVG, Liquidity grab
     ob_zone = detect_order_block(df)
     bos = detect_bos(df)
     fvg = detect_fvg(df)
@@ -76,37 +88,35 @@ def generate_signal(symbol, timeframe):
     return {"action": "WAIT"}
 
 # === ML FILTERING ===
-# ml_model.py (simplified)
+# app/ml_model.py
 import joblib
+
+def extract_features(symbol):
+    return [0.5, 0.1, 0.3, 1.2, 60]  # Dummy features
 
 model = joblib.load("data/models/signal_filter_model.pkl")
 
 def ml_filter_signal(signal, symbol):
     if signal['action'] == 'WAIT':
         return signal
-    # Example input vector: [price diff, OB dist, FVG size, vol, RSI]
     features = extract_features(symbol)
     prediction = model.predict([features])[0]
-    if prediction == 1:
-        return signal
-    return {"action": "WAIT"}
+    return signal if prediction == 1 else {"action": "WAIT"}
 
 # === LOT SIZING ===
-# lot_sizing.py
-
+# app/lot_sizing.py
 def calculate_lot_size(balance, risk_pct, stop_loss_pips, pip_value):
     risk = balance * (risk_pct / 100)
     lot = risk / (stop_loss_pips * pip_value)
     return round(lot, 2)
 
 # === TRADE EXECUTOR ===
-# trade_executor.py
+# app/trade_executor.py
 import requests
 
 EXNESS_API = "https://api.exness.com/trade"
 
 def place_trade(symbol, action, lot, stop_loss, take_profit):
-    # Example payload structure for broker
     payload = {
         "symbol": symbol,
         "type": "buy" if action == 'BUY' else 'sell',
@@ -115,15 +125,9 @@ def place_trade(symbol, action, lot, stop_loss, take_profit):
         "tp": take_profit
     }
     headers = {"Authorization": "Bearer YOUR_API_KEY"}
-    r = requests.post(EXNESS_API, json=payload, headers=headers)
-    return r.json()
+    return requests.post(EXNESS_API, json=payload, headers=headers).json()
 
-# === FRONTEND REACT (Brief Description) ===
-# Pages:
-# - Dashboard: Shows signals, live trades, equity
-# - Settings: Broker keys, risk %, asset selection
-# - Trade Logs: View past executed trades
-
+# === FRONTEND (React) ===
 # React fetch example:
 # fetch('/trade', {
 #   method: 'POST',
@@ -132,8 +136,14 @@ def place_trade(symbol, action, lot, stop_loss, take_profit):
 # })
 
 # === DEPLOYMENT ===
-# Use Docker for backend containerization
-# Host backend on Render/AWS Lambda
-# Frontend on Vercel/Netlify
+# Use Docker with this Dockerfile in project root:
+# Dockerfile:
+# ----------------------------------
+# FROM python:3.10-slim
+# WORKDIR /app
+# COPY . .
+# RUN pip install --no-cache-dir -r requirements.txt
+# CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# ----------------------------------
 
-# This system provides an end-to-end trading bot framework focused on SMC + price action + ML filtering.
+# Frontend on Vercel or Netlify, backend on Render/Railway.
