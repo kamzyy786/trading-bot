@@ -11,6 +11,7 @@
 # === BACKEND STRUCTURE ===
 # Project folders:
 # ├── app/
+# │   ├── __init__.py          # Makes app a package
 # │   ├── main.py              # FastAPI main app
 # │   ├── signals.py           # Signal generation logic
 # │   ├── ml_model.py          # ML model loader/predictor
@@ -145,5 +146,20 @@ def place_trade(symbol, action, lot, stop_loss, take_profit):
 # RUN pip install --no-cache-dir -r requirements.txt
 # CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 # ----------------------------------
+
+# .dockerignore:
+# __pycache__/
+# *.pyc
+# .git/
+# .venv/
+# *.pkl
+
+# requirements.txt (example):
+# fastapi
+# uvicorn
+# pandas
+# joblib
+# scikit-learn
+# requests
 
 # Frontend on Vercel or Netlify, backend on Render/Railway.
